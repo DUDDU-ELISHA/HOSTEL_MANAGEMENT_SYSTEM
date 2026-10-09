@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { HostelType, Resident, PaymentRecord, ExpenseItem, HostelConfig } from './types';
 import { StorageService, HOSTEL_CONFIGS } from './services/storage';
+import { testConnection } from './services/firebase';
 import { HostLogin } from './components/HostLogin';
 import { HostelSelector } from './components/HostelSelector';
 import { Navbar } from './components/Navbar';
@@ -9,7 +10,7 @@ import { VacatedResidentsSection } from './components/VacatedResidentsSection';
 import { PaymentSection } from './components/PaymentSection';
 import { InvestmentSection } from './components/InvestmentSection';
 import { MonthlyReportingSection } from './components/MonthlyReportingSection';
-import { ShieldCheck, Database, RefreshCw, Sparkles, Building2 } from 'lucide-react';
+import { ShieldCheck, Database, RefreshCw, Sparkles, Building2, Cloud } from 'lucide-react';
 
 export default function App() {
   // Authentication State
@@ -36,7 +37,14 @@ export default function App() {
   const [config, setConfig] = useState<HostelConfig>(
     HOSTEL_CONFIGS.tlnr_mens
   );
-  const [syncTime, setSyncTime] = useState<string>('Live Sync Active');
+  const [syncTime, setSyncTime] = useState<string>('Cloud Live');
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const syncedHostelsRef = useRef<Record<string, boolean>>({});
+
+  // Trigger testConnection on mount
+  useEffect(() => {
+    testConnection().catch((err) => console.info('Firestore boot check:', err));
+  }, []);
 
   // Load data for the selected hostel
   const loadHostelData = useCallback(() => {
@@ -51,13 +59,41 @@ export default function App() {
     setPayments(currentPayments);
     setExpenses(currentExpenses);
     setSyncTime(
-      `Synced ${new Date().toLocaleTimeString('en-US', {
+      `Cloud Synced ${new Date().toLocaleTimeString('en-US', {
         hour: '2-digit',
         minute: '2-digit',
-        second: '2-digit',
       })}`
     );
   }, [selectedHostel]);
+
+  // Sync from Cloud Firestore
+  const handleCloudSync = useCallback(async (hostelId?: HostelType) => {
+    const targetHostel = hostelId || selectedHostel;
+    if (!targetHostel) return;
+    setIsSyncing(true);
+    try {
+      await StorageService.syncFromCloud(targetHostel);
+      loadHostelData();
+      setSyncTime(
+        `Cloud Synced ${new Date().toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+        })}`
+      );
+    } catch (e) {
+      console.warn('Sync warning:', e);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [selectedHostel, loadHostelData]);
+
+  // Automatically sync with Cloud Firestore once when entering hostel
+  useEffect(() => {
+    if (selectedHostel && !syncedHostelsRef.current[selectedHostel]) {
+      syncedHostelsRef.current[selectedHostel] = true;
+      handleCloudSync(selectedHostel);
+    }
+  }, [selectedHostel, handleCloudSync]);
 
   // Initial and reactive sync
   useEffect(() => {
@@ -152,6 +188,8 @@ export default function App() {
         onSwitchHostel={(hostel) => setSelectedHostel(hostel)}
         onGoToHostelSelector={() => setSelectedHostel(null)}
         onLogout={handleLogout}
+        isSyncing={isSyncing}
+        onSyncFromCloud={() => handleCloudSync()}
       />
 
       {/* Real-time Status Banner */}
@@ -168,7 +206,7 @@ export default function App() {
           <div className="flex items-center gap-3">
             <span className="hidden sm:inline font-mono">{syncTime}</span>
             <span className="flex items-center gap-1 text-emerald-300 font-medium">
-              <ShieldCheck className="w-3.5 h-3.5" /> Encrypted Vault Active
+              <Cloud className="w-3.5 h-3.5" /> Cloud Save Active (Mobile & Laptop Synced)
             </span>
           </div>
         </div>

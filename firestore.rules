@@ -1,0 +1,43 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isValidHostelId(id) {
+      return id == 'tlnr_mens' || id == 'bhagya_lakshmi_womens';
+    }
+
+    // Connection test document
+    match /test/connection {
+      allow read, write: if true;
+    }
+
+    // Match hostel parent doc & all subcollections
+    match /hostels/{hostelId} {
+      allow read, write: if isValidHostelId(hostelId);
+
+      match /residents/{residentId} {
+        allow read, write: if isValidHostelId(hostelId);
+      }
+
+      match /payments/{paymentId} {
+        allow read, write: if isValidHostelId(hostelId);
+      }
+
+      match /expenses/{expenseId} {
+        allow read, write: if isValidHostelId(hostelId);
+      }
+
+      match /configs/{configId} {
+        allow read, write: if isValidHostelId(hostelId);
+      }
+
+      match /budgets/{budgetId} {
+        allow read, write: if isValidHostelId(hostelId);
+      }
+
+      match /{allSubcollections=**} {
+        allow read, write: if isValidHostelId(hostelId);
+      }
+    }
+  }
+}

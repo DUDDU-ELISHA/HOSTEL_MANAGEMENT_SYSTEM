@@ -167,20 +167,20 @@ export function generateResidentDetailsWordReport(params: {
       border-collapse: collapse;
       margin-top: 16px;
       margin-bottom: 24px;
-      font-size: 10.5pt;
+      font-size: 10pt;
     }
     th {
       background-color: #4a0e4e;
       color: #ffffff;
       font-weight: bold;
       border: 1px solid #380b3b;
-      padding: 10px 8px;
+      padding: 9px 8px;
       text-align: left;
-      font-size: 10pt;
+      font-size: 9.5pt;
     }
     td {
       border: 1px solid #e5e7eb;
-      padding: 8px 10px;
+      padding: 7px 8px;
       vertical-align: middle;
     }
     tr:nth-child(even) {
@@ -195,6 +195,26 @@ export function generateResidentDetailsWordReport(params: {
       font-family: 'Consolas', 'Courier New', monospace;
       color: #4a0e4e;
       font-weight: bold;
+    }
+    .joining-date {
+      color: #4a0e4e;
+      font-weight: bold;
+      white-space: nowrap;
+    }
+    .status-badge {
+      font-weight: bold;
+      font-size: 8.5pt;
+      padding: 2px 6px;
+      border-radius: 4px;
+      display: inline-block;
+    }
+    .status-paid {
+      color: #047857;
+      background-color: #ecfdf5;
+    }
+    .status-pending {
+      color: #b91c1c;
+      background-color: #fef2f2;
     }
     .total-row {
       background-color: #faf5ff;
@@ -229,37 +249,41 @@ export function generateResidentDetailsWordReport(params: {
   </div>
 
   <div class="report-title-bar">
-    <div class="report-title">RESIDENT DETAILS & PAYMENT REPORT</div>
+    <div class="report-title">RESIDENT ROSTER & JOINING REPORT</div>
     <div class="meta-text">Generated On: <strong>${todayStr}</strong> | Total Registered Records: <strong>${rows.length}</strong></div>
   </div>
 
-  <p style="font-size: 11pt; color: #374151;">
-    Official roster of all hostel residents including room assignments, fee payment dates, receipt numbers (starting from 001), payment modes, and amounts collected.
+  <p style="font-size: 10.5pt; color: #374151;">
+    Official resident registry of ${config.name} with Joining Dates, room numbers, contact details, payment receipts, fee modes, and amounts.
   </p>
 
   <table>
     <thead>
       <tr>
-        <th style="width: 20%;">Name</th>
-        <th style="width: 12%;">Room Number</th>
-        <th style="width: 13%;">Joining Date</th>
-        <th style="width: 13%;">Payment Date</th>
-        <th style="width: 13%;">Receipt Number</th>
-        <th style="width: 14%;">Payment Mode</th>
-        <th style="width: 15%; text-align: right;">Amount (INR)</th>
+        <th style="width: 4%;">#</th>
+        <th style="width: 18%;">Resident Name</th>
+        <th style="width: 10%;">Room #</th>
+        <th style="width: 14%;">Joining Date</th>
+        <th style="width: 12%;">Phone</th>
+        <th style="width: 12%;">Payment Date</th>
+        <th style="width: 10%;">Receipt #</th>
+        <th style="width: 10%;">Mode</th>
+        <th style="width: 10%; text-align: right;">Amount (INR)</th>
       </tr>
     </thead>
     <tbody>
       ${
         rows.length === 0
-          ? `<tr><td colspan="7" style="text-align: center; color: #6b7280; padding: 20px;">No resident details recorded yet.</td></tr>`
+          ? `<tr><td colspan="9" style="text-align: center; color: #6b7280; padding: 20px;">No resident details recorded yet.</td></tr>`
           : rows
               .map(
-                (r) => `
+                (r, idx) => `
         <tr>
+          <td style="text-align: center; color: #6b7280;">${idx + 1}</td>
           <td><strong>${r.name}</strong></td>
-          <td>${r.roomNumber}</td>
-          <td>${r.joiningDate || '-'}</td>
+          <td><strong>${r.roomNumber}</strong></td>
+          <td class="joining-date">${r.joiningDate || '-'}</td>
+          <td>${r.phone || '-'}</td>
           <td>${r.paymentDate}</td>
           <td class="receipt-num">${r.receiptNumber}</td>
           <td>${r.paymentMode}</td>
@@ -269,8 +293,8 @@ export function generateResidentDetailsWordReport(params: {
               .join('')
       }
       <tr class="total-row">
-        <td colspan="6" style="text-align: right;"><strong>TOTAL RENT FEE AMOUNT COLLECTED:</strong></td>
-        <td class="num" style="color: #047857; font-size: 11pt;">₹ ${totalAmountCollected.toLocaleString('en-IN')}</td>
+        <td colspan="8" style="text-align: right;"><strong>TOTAL FEE AMOUNT COLLECTED:</strong></td>
+        <td class="num" style="color: #047857; font-size: 10.5pt;">₹ ${totalAmountCollected.toLocaleString('en-IN')}</td>
       </tr>
     </tbody>
   </table>
@@ -282,7 +306,7 @@ export function generateResidentDetailsWordReport(params: {
   </div>
 
   <div class="footer-note">
-    Official digital record generated for ${config.name} · KPHB Road Number 3, Hyderabad, Telangana · ${config.phone1} / ${config.phone2}
+    Official digital record generated for ${config.name} · KPHB Road Number 3, Hyderabad, Telangana · Contact: ${config.phone1} / ${config.phone2}
   </div>
 
 </body>

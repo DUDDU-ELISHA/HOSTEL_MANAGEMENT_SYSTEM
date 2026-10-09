@@ -7,6 +7,7 @@ import {
   HostelConfig
 } from '../types';
 import { TLNR_MENS_RESIDENTS, TLNR_MENS_PAYMENTS } from '../data/mensPgData';
+import { CloudDbService } from './cloudDb';
 
 const STORAGE_KEY_PREFIX = 'hms_vault_v1_';
 const SECRET_SALT = 'HMS_SECURE_ENCRYPTED_2026_KEY';
@@ -127,7 +128,8 @@ export const StorageService = {
   saveResident(resident: Omit<Resident, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }): Resident {
     const current = this.getResidents(resident.hostelId);
     const now = new Date().toISOString();
-    
+    let saved: Resident;
+
     if (resident.id) {
       // Edit
       const updated = current.map((r) =>
@@ -137,8 +139,7 @@ export const StorageService = {
         `${STORAGE_KEY_PREFIX}residents_${resident.hostelId}`,
         encrypt(updated)
       );
-      emitChange();
-      return updated.find((r) => r.id === resident.id)!;
+      saved = updated.find((r) => r.id === resident.id)!;
     } else {
       // Add
       const newResident: Resident = {
@@ -152,9 +153,12 @@ export const StorageService = {
         `${STORAGE_KEY_PREFIX}residents_${resident.hostelId}`,
         encrypt(updated)
       );
-      emitChange();
-      return newResident;
+      saved = newResident;
     }
+    emitChange();
+    // Persist to Cloud Firestore in background
+    CloudDbService.saveResident(saved).catch((err) => console.warn('Cloud sync error:', err));
+    return saved;
   },
 
   deleteResident(hostelId: HostelType, residentId: string): void {
@@ -165,6 +169,9 @@ export const StorageService = {
       encrypt(filtered)
     );
     emitChange();
+    CloudDbService.deleteResident(hostelId, residentId).catch((err) =>
+      console.warn('Cloud delete error:', err)
+    );
   },
 
   toggleAdvance500Status(hostelId: HostelType, residentId: string, received?: boolean): Resident | undefined {
@@ -187,7 +194,13 @@ export const StorageService = {
       encrypt(updated)
     );
     emitChange();
-    return updated.find((r) => r.id === residentId);
+    const result = updated.find((r) => r.id === residentId);
+    if (result) {
+      CloudDbService.saveResident(result).catch((err) =>
+        console.warn('Cloud toggle error:', err)
+      );
+    }
+    return result;
   },
 
   markResidentVacated(
@@ -218,7 +231,13 @@ export const StorageService = {
       encrypt(updated)
     );
     emitChange();
-    return updated.find((r) => r.id === residentId);
+    const result = updated.find((r) => r.id === residentId);
+    if (result) {
+      CloudDbService.saveResident(result).catch((err) =>
+        console.warn('Cloud vacate error:', err)
+      );
+    }
+    return result;
   },
 
   restoreResident(hostelId: HostelType, residentId: string): Resident | undefined {
@@ -239,7 +258,13 @@ export const StorageService = {
       encrypt(updated)
     );
     emitChange();
-    return updated.find((r) => r.id === residentId);
+    const result = updated.find((r) => r.id === residentId);
+    if (result) {
+      CloudDbService.saveResident(result).catch((err) =>
+        console.warn('Cloud restore error:', err)
+      );
+    }
+    return result;
   },
 
   // Payments (Initial empty for Women's PG; loaded from registered records for Men's PG)
@@ -287,6 +312,7 @@ export const StorageService = {
       ? payment.paymentDate.slice(0, 7)
       : (payment.month || now.slice(0, 7));
     const normalizedPayment = { ...payment, month: derivedMonth };
+    let saved: PaymentRecord;
 
     if (normalizedPayment.id) {
       // Update
@@ -297,8 +323,7 @@ export const StorageService = {
         `${STORAGE_KEY_PREFIX}payments_${normalizedPayment.hostelId}`,
         encrypt(updated)
       );
-      emitChange();
-      return updated.find((p) => p.id === normalizedPayment.id)!;
+      saved = updated.find((p) => p.id === normalizedPayment.id)!;
     } else {
       // Add
       const count = current.length + 1;
@@ -315,9 +340,13 @@ export const StorageService = {
         `${STORAGE_KEY_PREFIX}payments_${normalizedPayment.hostelId}`,
         encrypt(updated)
       );
-      emitChange();
-      return newPayment;
+      saved = newPayment;
     }
+    emitChange();
+    CloudDbService.savePayment(saved).catch((err) =>
+      console.warn('Cloud payment sync error:', err)
+    );
+    return saved;
   },
 
   deletePayment(hostelId: HostelType, paymentId: string): void {
@@ -328,6 +357,9 @@ export const StorageService = {
       encrypt(filtered)
     );
     emitChange();
+    CloudDbService.deletePayment(hostelId, paymentId).catch((err) =>
+      console.warn('Cloud payment delete error:', err)
+    );
   },
 
   markReceiptSent(hostelId: HostelType, paymentId: string): void {
@@ -340,6 +372,12 @@ export const StorageService = {
       encrypt(updated)
     );
     emitChange();
+    const result = updated.find((p) => p.id === paymentId);
+    if (result) {
+      CloudDbService.savePayment(result).catch((err) =>
+        console.warn('Cloud receiptSent sync error:', err)
+      );
+    }
   },
 
   // Expenses (Initial empty array)
@@ -354,6 +392,7 @@ export const StorageService = {
   ): ExpenseItem {
     const current = this.getExpenses(expense.hostelId);
     const now = new Date().toISOString();
+    let saved: ExpenseItem;
 
     if (expense.id) {
       const updated = current.map((e) =>
@@ -363,8 +402,7 @@ export const StorageService = {
         `${STORAGE_KEY_PREFIX}expenses_${expense.hostelId}`,
         encrypt(updated)
       );
-      emitChange();
-      return updated.find((e) => e.id === expense.id)!;
+      saved = updated.find((e) => e.id === expense.id)!;
     } else {
       const newExpense: ExpenseItem = {
         ...expense,
@@ -376,9 +414,13 @@ export const StorageService = {
         `${STORAGE_KEY_PREFIX}expenses_${expense.hostelId}`,
         encrypt(updated)
       );
-      emitChange();
-      return newExpense;
+      saved = newExpense;
     }
+    emitChange();
+    CloudDbService.saveExpense(saved).catch((err) =>
+      console.warn('Cloud expense sync error:', err)
+    );
+    return saved;
   },
 
   deleteExpense(hostelId: HostelType, expenseId: string): void {
@@ -389,6 +431,9 @@ export const StorageService = {
       encrypt(filtered)
     );
     emitChange();
+    CloudDbService.deleteExpense(hostelId, expenseId).catch((err) =>
+      console.warn('Cloud expense delete error:', err)
+    );
   },
 
   // Budget
@@ -583,5 +628,70 @@ export const StorageService = {
     localStorage.removeItem(`${STORAGE_KEY_PREFIX}payments_${hostelId}`);
     localStorage.removeItem(`${STORAGE_KEY_PREFIX}expenses_${hostelId}`);
     emitChange();
+  },
+
+  // Pull latest updates from Cloud Firestore into browser/device vault
+  async syncFromCloud(hostelId: HostelType): Promise<{
+    residentsCount: number;
+    paymentsCount: number;
+    expensesCount: number;
+  }> {
+    try {
+      const [cloudResidents, cloudPayments, cloudExpenses, cloudConfig] = await Promise.all([
+        CloudDbService.fetchResidents(hostelId),
+        CloudDbService.fetchPayments(hostelId),
+        CloudDbService.fetchExpenses(hostelId),
+        CloudDbService.fetchHostelConfig(hostelId),
+      ]);
+
+      if (cloudConfig) {
+        localStorage.setItem(
+          `${STORAGE_KEY_PREFIX}config_${hostelId}`,
+          encrypt(cloudConfig)
+        );
+      }
+
+      if (cloudResidents && cloudResidents.length > 0) {
+        localStorage.setItem(
+          `${STORAGE_KEY_PREFIX}residents_${hostelId}`,
+          encrypt(cloudResidents)
+        );
+      } else if (hostelId === 'tlnr_mens') {
+        // If cloud was not seeded yet, seed cloud from current local / master data
+        const currentLocal = this.getResidents(hostelId);
+        if (currentLocal.length > 0) {
+          CloudDbService.batchSyncResidents(hostelId, currentLocal).catch(console.warn);
+        }
+      }
+
+      if (cloudPayments && cloudPayments.length > 0) {
+        localStorage.setItem(
+          `${STORAGE_KEY_PREFIX}payments_${hostelId}`,
+          encrypt(cloudPayments)
+        );
+      } else if (hostelId === 'tlnr_mens') {
+        const currentLocal = this.getPayments(hostelId);
+        if (currentLocal.length > 0) {
+          CloudDbService.batchSyncPayments(hostelId, currentLocal).catch(console.warn);
+        }
+      }
+
+      if (cloudExpenses && cloudExpenses.length > 0) {
+        localStorage.setItem(
+          `${STORAGE_KEY_PREFIX}expenses_${hostelId}`,
+          encrypt(cloudExpenses)
+        );
+      }
+
+      emitChange();
+      return {
+        residentsCount: cloudResidents.length,
+        paymentsCount: cloudPayments.length,
+        expensesCount: cloudExpenses.length,
+      };
+    } catch (e) {
+      console.warn('Sync from cloud error:', e);
+      return { residentsCount: 0, paymentsCount: 0, expensesCount: 0 };
+    }
   },
 };

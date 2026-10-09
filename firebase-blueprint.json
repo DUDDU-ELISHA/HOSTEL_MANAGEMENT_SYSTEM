@@ -1,0 +1,130 @@
+{
+  "entities": {
+    "Resident": {
+      "title": "Resident",
+      "description": "Resident profile including room number, sharing type, rent, vacated details and advance status",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "hostelId": { "type": "string", "enum": ["tlnr_mens", "bhagya_lakshmi_womens"] },
+        "name": { "type": "string", "maxLength": 120 },
+        "roomNumber": { "type": "string", "maxLength": 30 },
+        "sharingType": { "type": "string", "maxLength": 50 },
+        "phone": { "type": "string", "maxLength": 30 },
+        "email": { "type": "string", "maxLength": 120 },
+        "emergencyContact": { "type": "string", "maxLength": 50 },
+        "joiningDate": { "type": "string", "maxLength": 30 },
+        "monthlyRent": { "type": "number" },
+        "depositAmount": { "type": "number" },
+        "status": { "type": "string", "enum": ["Active", "Vacating", "Left"] },
+        "vacatedDate": { "type": "string", "maxLength": 30 },
+        "advance500Received": { "type": "boolean" },
+        "advance500Notes": { "type": "string", "maxLength": 500 },
+        "notes": { "type": "string", "maxLength": 1000 },
+        "createdAt": { "type": "string", "maxLength": 60 },
+        "updatedAt": { "type": "string", "maxLength": 60 }
+      },
+      "required": ["id", "hostelId", "name", "roomNumber", "phone", "monthlyRent", "status"]
+    },
+    "PaymentRecord": {
+      "title": "PaymentRecord",
+      "description": "Fee receipt and payment transaction record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "hostelId": { "type": "string", "enum": ["tlnr_mens", "bhagya_lakshmi_womens"] },
+        "receiptNumber": { "type": "string", "maxLength": 50 },
+        "residentId": { "type": "string", "maxLength": 128 },
+        "residentName": { "type": "string", "maxLength": 120 },
+        "roomNumber": { "type": "string", "maxLength": 30 },
+        "paymentDate": { "type": "string", "maxLength": 30 },
+        "month": { "type": "string", "maxLength": 20 },
+        "paymentMode": { "type": "string", "maxLength": 50 },
+        "monthlyRent": { "type": "number" },
+        "advanceDeposit": { "type": "number" },
+        "totalInvoiced": { "type": "number" },
+        "amountReceived": { "type": "number" },
+        "outstandingBalance": { "type": "number" },
+        "paymentStatus": { "type": "string", "maxLength": 50 },
+        "residentEmail": { "type": "string", "maxLength": 120 },
+        "receiptSentAt": { "type": "string", "maxLength": 60 },
+        "notes": { "type": "string", "maxLength": 1000 },
+        "createdAt": { "type": "string", "maxLength": 60 }
+      },
+      "required": ["id", "hostelId", "receiptNumber", "residentName", "roomNumber", "paymentDate", "amountReceived", "paymentStatus"]
+    },
+    "ExpenseItem": {
+      "title": "ExpenseItem",
+      "description": "Hostel investment and operational expense record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "hostelId": { "type": "string", "enum": ["tlnr_mens", "bhagya_lakshmi_womens"] },
+        "category": { "type": "string", "maxLength": 50 },
+        "title": { "type": "string", "maxLength": 150 },
+        "amount": { "type": "number" },
+        "date": { "type": "string", "maxLength": 30 },
+        "month": { "type": "string", "maxLength": 20 },
+        "paidTo": { "type": "string", "maxLength": 120 },
+        "paymentMode": { "type": "string", "maxLength": 50 },
+        "billNumber": { "type": "string", "maxLength": 50 },
+        "notes": { "type": "string", "maxLength": 1000 },
+        "createdAt": { "type": "string", "maxLength": 60 }
+      },
+      "required": ["id", "hostelId", "category", "title", "amount", "date", "month"]
+    },
+    "HostelConfig": {
+      "title": "HostelConfig",
+      "description": "Property configuration, capacity and contact numbers",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "enum": ["tlnr_mens", "bhagya_lakshmi_womens"] },
+        "name": { "type": "string", "maxLength": 120 },
+        "address": { "type": "string", "maxLength": 200 },
+        "phone1": { "type": "string", "maxLength": 30 },
+        "phone2": { "type": "string", "maxLength": 30 },
+        "ownerName": { "type": "string", "maxLength": 120 },
+        "totalRooms": { "type": "number" },
+        "totalBeds": { "type": "number" }
+      },
+      "required": ["id", "name", "phone1", "ownerName"]
+    },
+    "MonthlyBudget": {
+      "title": "MonthlyBudget",
+      "description": "Budget allocation per month per hostel",
+      "type": "object",
+      "properties": {
+        "month": { "type": "string", "maxLength": 20 },
+        "hostelId": { "type": "string", "enum": ["tlnr_mens", "bhagya_lakshmi_womens"] },
+        "groceryBudget": { "type": "number" },
+        "powerBudget": { "type": "number" },
+        "maintenanceBudget": { "type": "number" },
+        "salaryBudget": { "type": "number" },
+        "totalTargetBudget": { "type": "number" }
+      },
+      "required": ["month", "hostelId", "totalTargetBudget"]
+    }
+  },
+  "firestore": {
+    "/hostels/{hostelId}/residents/{residentId}": {
+      "schema": { "$ref": "#/entities/Resident" },
+      "description": "Collection of residents for a specific hostel"
+    },
+    "/hostels/{hostelId}/payments/{paymentId}": {
+      "schema": { "$ref": "#/entities/PaymentRecord" },
+      "description": "Collection of fee receipts for a specific hostel"
+    },
+    "/hostels/{hostelId}/expenses/{expenseId}": {
+      "schema": { "$ref": "#/entities/ExpenseItem" },
+      "description": "Collection of investment and expense line items"
+    },
+    "/hostels/{hostelId}/configs/{configId}": {
+      "schema": { "$ref": "#/entities/HostelConfig" },
+      "description": "Hostel configuration and profile settings"
+    },
+    "/hostels/{hostelId}/budgets/{budgetId}": {
+      "schema": { "$ref": "#/entities/MonthlyBudget" },
+      "description": "Monthly budget targets for hostel operations"
+    }
+  }
+}

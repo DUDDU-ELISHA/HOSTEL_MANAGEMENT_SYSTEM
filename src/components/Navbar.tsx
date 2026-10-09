@@ -11,7 +11,9 @@ import {
   ShieldCheck,
   Menu,
   X,
-  UserMinus
+  UserMinus,
+  Cloud,
+  RefreshCw
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -22,6 +24,8 @@ interface NavbarProps {
   onSwitchHostel: (hostel: HostelType) => void;
   onGoToHostelSelector: () => void;
   onLogout: () => void;
+  isSyncing?: boolean;
+  onSyncFromCloud?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -32,6 +36,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onSwitchHostel,
   onGoToHostelSelector,
   onLogout,
+  isSyncing,
+  onSyncFromCloud,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [hostelDropdownOpen, setHostelDropdownOpen] = useState(false);
@@ -147,6 +153,25 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* ZONE 3: Host Auth Status & Actions */}
           <div className="flex items-center gap-2.5 shrink-0">
+            {onSyncFromCloud && (
+              <button
+                type="button"
+                onClick={onSyncFromCloud}
+                disabled={isSyncing}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold rounded-lg border border-emerald-200 transition-all cursor-pointer shadow-2xs disabled:opacity-60"
+                title="Save mode active: syncs all data to cloud so you see same updates on laptop and mobile"
+              >
+                {isSyncing ? (
+                  <RefreshCw className="w-3.5 h-3.5 text-emerald-600 animate-spin" />
+                ) : (
+                  <Cloud className="w-3.5 h-3.5 text-emerald-600" />
+                )}
+                <span className="hidden md:inline">
+                  {isSyncing ? 'Syncing...' : 'Cloud Saved ✓'}
+                </span>
+              </button>
+            )}
+
             <div className="hidden sm:flex flex-col text-right">
               <span className="text-[11px] font-bold text-slate-800 truncate max-w-[160px]">
                 dudduelisha7@gmail.com

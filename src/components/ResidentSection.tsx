@@ -32,7 +32,7 @@ import {
   ChevronDown,
   ChevronUp
 } from 'lucide-react';
-import { formatReceiptNumber } from '../services/pdfGenerator';
+import { formatReceiptNumber, exportResidentsPdfReport } from '../services/pdfGenerator';
 import { generateResidentDetailsWordReport } from '../services/wordExport';
 
 interface ResidentSectionProps {
@@ -296,6 +296,15 @@ export const ResidentSection: React.FC<ResidentSectionProps> = ({
     });
   };
 
+  // Export Resident Report with Joining Data as PDF
+  const handleExportPdfReport = () => {
+    exportResidentsPdfReport({
+      config,
+      residents: filteredResidents,
+      payments,
+    });
+  };
+
   return (
     <div className="space-y-6">
       {/* 1. Vacancy Rate Widget */}
@@ -353,10 +362,20 @@ export const ResidentSection: React.FC<ResidentSectionProps> = ({
             <button
               onClick={handleExportWordReport}
               className="flex items-center gap-1.5 px-3 py-2 bg-purple-50 hover:bg-purple-100 text-[#4a0e4e] font-bold text-xs rounded-xl transition-colors border border-purple-200 cursor-pointer shadow-xs whitespace-nowrap"
-              title="Download Resident Details report in Word format (.doc) with Name, Room #, Payment Date, Receipt #, Mode, and Amount"
+              title="Download Resident Details report in Word format (.doc) with Joining Data, Room #, Phone, and Payments"
             >
               <FileText className="w-3.5 h-3.5 text-purple-700" />
               <span>Residents Report (Word)</span>
+            </button>
+
+            {/* Export Resident Details PDF Report */}
+            <button
+              onClick={handleExportPdfReport}
+              className="flex items-center gap-1.5 px-3 py-2 bg-red-50 hover:bg-red-100 text-red-700 font-bold text-xs rounded-xl transition-colors border border-red-200 cursor-pointer shadow-xs whitespace-nowrap"
+              title="Download Resident Report in PDF format with Joining Data, Room #, Sharing, Phone, and Status"
+            >
+              <Download className="w-3.5 h-3.5 text-red-600" />
+              <span>Residents Report (PDF)</span>
             </button>
 
             {/* Export Report CSV */}

@@ -1,5 +1,5 @@
 import { jsPDF } from 'jspdf';
-import { PaymentRecord, HostelConfig } from '../types';
+import { PaymentRecord, HostelConfig, Resident } from '../types';
 
 export function formatReceiptNumber(rawNum: string | number): string {
   const num = parseInt(String(rawNum).replace(/\D/g, ''), 10);
@@ -267,3 +267,292 @@ export function downloadReceiptAsPDF(payment: PaymentRecord, config: HostelConfi
   const filename = `${config.name.replace(/[^a-zA-Z0-9]/g, '_')}_Receipt_${receiptNum}.pdf`;
   doc.save(filename);
 }
+
+/**
+ * Generates and downloads a complete Resident Report with Joining Data in PDF format.
+ * Features:
+ * - Hostel Header with Address and Owner Contact
+ * - Summary Badges (Total Residents, Rooms, Total Rent)
+ * - Clean Data Table: #, Name, Room, Sharing, Joining Date, Phone, Status, Monthly Rent
+ * - Multi-page pagination support with page numbers
+ * - Official Authorized Signatory Box
+ */
+export function exportResidentsPdfReport(params: {
+  config: HostelConfig;
+  residents: Resident[];
+  payments?: PaymentRecord[];
+}): void {
+  const { config, residents } = params;
+
+  // Use landscape A4 for comfortable column distribution
+  const doc = new jsPDF({
+    orientation: 'landscape',
+    unit: 'mm',
+    format: 'a4',
+  });
+
+  const pageWidth = doc.internal.pageSize.getWidth(); // 297mm
+  const pageHeight = doc.internal.pageSize.getHeight(); // 210mm
+  const margin = 14;
+  const contentWidth = pageWidth - margin * 2; // 269mm
+
+  // Format date helper
+  const formatDateStr = (dStr?: string): string => {
+    if (!dStr || dStr === '-') return '-';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dStr)) {
+      const [y, m, d] = dStr.split('-');
+      return `${d}/${m}/${y}`;
+    }
+    return dStr;
+  };
+
+  const todayStr = new Date().toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+
+  // Calculate totals
+  const totalRent = residents.reduce((sum, r) => sum + (r.monthlyRent || 0), 0);
+  const activeCount = residents.filter((r) => r.status === 'Active').length;
+  const vacatingCount = residents.filter((r) => r.status === 'Vacating').length;
+
+  // Table setup
+  const rowHeight = 7.5;
+  const startY = 48;
+  const rowsPerPage = 17;
+
+  // Column definitions: sum must be <= contentWidth (269mm)
+  // [ #, Resident Name, Room #, Sharing, Joining Date, Phone, Status, Monthly Rent (INR) ]
+  const cols = [
+    { header: '#', width: 12, align: 'center' as const },
+    { header: 'Resident Name', width: 55, align: 'left' as const },
+    { header: 'Room #', width: 22, align: 'center' as const },
+    { header: 'Sharing', width: 26, align: 'center' as const },
+    { header: 'Joining Date', width: 34, align: 'center' as const },
+    { header: 'Phone Number', width: 38, align: 'center' as const },
+    { header: 'Status', width: 28, align: 'center' as const },
+    { header: 'Rent (INR)', width: 34, align: 'right' as const },
+  ];
+  const tableWidth = cols.reduce((sum, c) => sum + c.width, 0); // 249mm
+  const tableStartX = margin + (contentWidth - tableWidth) / 2;
+
+  const totalPages = Math.max(1, Math.ceil(residents.length / rowsPerPage));
+
+  for (let page = 0; page < totalPages; page++) {
+    if (page > 0) {
+      doc.addPage('a4', 'landscape');
+    }
+
+    // Outer decorative border
+    doc.setDrawColor(216, 180, 254);
+    doc.setLineWidth(0.4);
+    doc.roundedRect(margin, margin, contentWidth, pageHeight - margin * 2, 2, 2, 'S');
+
+    // Header Purple Banner
+    const bannerHeight = 22;
+    doc.setFillColor(74, 14, 78); // #4a0e4e
+    doc.roundedRect(margin + 2, margin + 2, contentWidth - 4, bannerHeight, 2, 2, 'F');
+
+    // Header Title
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.text(config.name.toUpperCase(), pageWidth / 2, margin + 9, { align: 'center' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(233, 213, 255);
+    doc.text(
+      `${config.address} | Owner: ${config.ownerName} | Contact: ${config.phone1} / ${config.phone2}`,
+      pageWidth / 2,
+      margin + 16,
+      { align: 'center' }
+    );
+
+    // Sub-banner Bar
+    const subBarY = margin + bannerHeight + 5;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(74, 14, 78);
+    doc.text('RESIDENT ROSTER & JOINING REPORT', tableStartX, subBarY + 4);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(71, 85, 105);
+    doc.text(
+      `Generated: ${todayStr}  |  Total Residents: ${residents.length} (Active: ${activeCount}, Vacating: ${vacatingCount})  |  Page ${page + 1} of ${totalPages}`,
+      tableStartX + tableWidth,
+      subBarY + 4,
+      { align: 'right' }
+    );
+
+    // Table Header
+    const thY = startY;
+    doc.setFillColor(74, 14, 78);
+    doc.rect(tableStartX, thY, tableWidth, 8, 'F');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(255, 255, 255);
+
+    let curX = tableStartX;
+    cols.forEach((col) => {
+      let textX = curX + 3;
+      if (col.align === 'center') textX = curX + col.width / 2;
+      if (col.align === 'right') textX = curX + col.width - 3;
+      doc.text(col.header, textX, thY + 5.5, { align: col.align });
+      curX += col.width;
+    });
+
+    // Page Rows
+    const startIndex = page * rowsPerPage;
+    const pageResidents = residents.slice(startIndex, startIndex + rowsPerPage);
+
+    let rowY = thY + 8;
+    pageResidents.forEach((res, index) => {
+      const isEven = index % 2 === 0;
+      doc.setFillColor(isEven ? 255 : 248, isEven ? 255 : 249, isEven ? 255 : 250);
+      doc.rect(tableStartX, rowY, tableWidth, rowHeight, 'F');
+
+      // Thin separator
+      doc.setDrawColor(229, 231, 235);
+      doc.setLineWidth(0.15);
+      doc.line(tableStartX, rowY + rowHeight, tableStartX + tableWidth, rowY + rowHeight);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(30, 41, 59);
+
+      let colX = tableStartX;
+      const globalIdx = startIndex + index + 1;
+
+      // 1. #
+      doc.text(String(globalIdx), colX + cols[0].width / 2, rowY + 5, { align: 'center' });
+      colX += cols[0].width;
+
+      // 2. Name
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      const truncatedName = res.name.length > 25 ? res.name.substring(0, 24) + '...' : res.name;
+      doc.text(truncatedName, colX + 3, rowY + 5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(30, 41, 59);
+      colX += cols[1].width;
+
+      // 3. Room Number
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(74, 14, 78);
+      doc.text(res.roomNumber, colX + cols[2].width / 2, rowY + 5, { align: 'center' });
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(30, 41, 59);
+      colX += cols[2].width;
+
+      // 4. Sharing
+      doc.text(res.sharingType || '-', colX + cols[3].width / 2, rowY + 5, { align: 'center' });
+      colX += cols[3].width;
+
+      // 5. Joining Date (Prominently styled)
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(74, 14, 78);
+      doc.text(formatDateStr(res.joiningDate), colX + cols[4].width / 2, rowY + 5, { align: 'center' });
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(30, 41, 59);
+      colX += cols[4].width;
+
+      // 6. Phone
+      doc.text(res.phone || '-', colX + cols[5].width / 2, rowY + 5, { align: 'center' });
+      colX += cols[5].width;
+
+      // 7. Status
+      if (res.status === 'Active') {
+        doc.setTextColor(4, 120, 87);
+      } else if (res.status === 'Vacating') {
+        doc.setTextColor(180, 83, 9);
+      } else {
+        doc.setTextColor(100, 116, 139);
+      }
+      doc.setFont('helvetica', 'bold');
+      doc.text(res.status, colX + cols[6].width / 2, rowY + 5, { align: 'center' });
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(30, 41, 59);
+      colX += cols[6].width;
+
+      // 8. Rent
+      doc.setFont('helvetica', 'bold');
+      doc.text(`INR ${res.monthlyRent.toLocaleString('en-IN')}`, colX + cols[7].width - 3, rowY + 5, {
+        align: 'right',
+      });
+
+      rowY += rowHeight;
+    });
+
+    // Table outer border
+    doc.setDrawColor(209, 213, 219);
+    doc.setLineWidth(0.3);
+    doc.rect(tableStartX, thY, tableWidth, rowY - thY, 'S');
+
+    // On final page, print Total Summary row and Signatory Box
+    if (page === totalPages - 1) {
+      // Summary Row
+      doc.setFillColor(250, 245, 255);
+      doc.rect(tableStartX, rowY, tableWidth, 8, 'F');
+      doc.setDrawColor(126, 34, 206);
+      doc.setLineWidth(0.4);
+      doc.line(tableStartX, rowY, tableStartX + tableWidth, rowY);
+      doc.line(tableStartX, rowY + 8, tableStartX + tableWidth, rowY + 8);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(74, 14, 78);
+      doc.text('TOTAL MONTHLY RENT FROM REGISTERED RESIDENTS:', tableStartX + 5, rowY + 5.5);
+
+      doc.setTextColor(4, 120, 87);
+      doc.text(
+        `INR ${totalRent.toLocaleString('en-IN')}`,
+        tableStartX + tableWidth - 3,
+        rowY + 5.5,
+        { align: 'right' }
+      );
+
+      // Signatory Section at bottom
+      const sigY = pageHeight - margin - 15;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(100, 116, 139);
+      doc.text('Verified & Authorized Signatory:', tableStartX + tableWidth, sigY, { align: 'right' });
+
+      doc.setFont('times', 'bold');
+      doc.setFontSize(13);
+      doc.setTextColor(74, 14, 78);
+      doc.text(config.ownerName, tableStartX + tableWidth, sigY + 6, { align: 'right' });
+
+      doc.setDrawColor(74, 14, 78);
+      doc.setLineWidth(0.5);
+      doc.line(tableStartX + tableWidth - 45, sigY + 8, tableStartX + tableWidth, sigY + 8);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(71, 85, 105);
+      doc.text(`Authorized Signatory, ${config.name}`, tableStartX + tableWidth, sigY + 12, {
+        align: 'right',
+      });
+    }
+
+    // Page footer note
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(148, 163, 184);
+    doc.text(
+      `Official digital resident record of ${config.name} | Address: ${config.address} | Support: ${config.phone1} / ${config.phone2}`,
+      pageWidth / 2,
+      pageHeight - margin - 3,
+      { align: 'center' }
+    );
+  }
+
+  // Save PDF
+  const filename = `${config.name.replace(/[^a-zA-Z0-9]/g, '_')}_Residents_Joining_Report_${new Date().toISOString().slice(0, 10)}.pdf`;
+  doc.save(filename);
+}
+
