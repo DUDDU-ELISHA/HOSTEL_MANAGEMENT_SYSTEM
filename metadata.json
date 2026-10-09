@@ -1,0 +1,6 @@
+{
+  "name": "Hostel Management System - TLNR & Bhagya Lakshmi PG",
+  "description": "Comprehensive hostel management dashboard for TLNR Men's PG and Bhagya Lakshmi Women's PG featuring resident management, fee receipts, investment accounting, and monthly reporting.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
